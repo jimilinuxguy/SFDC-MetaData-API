@@ -316,6 +316,115 @@
 
     }
 
+    public function deploy() {
+
+
+            $zip = new ZipArchive();
+            $filename = "package.zip";
+
+            if ($zip->open($filename, ZIPARCHIVE::CREATE)!==TRUE) {
+            
+                die('here');            
+            }
+            
+            $zip->addFromString('pages/WatchListReport.page' , file_get_contents('/home/jimi/workspace/ConversionOrg-Sandbox/src/classes/WatchListReport.cls'));
+            $zip->addFromString('pages/WatchListReport.page-meta.xml' , file_get_contents('/home/jimi/workspace/ConversionOrg-Sandbox/src/classes/WatchListReport.cls-meta.xml'));
+
+            $zip->addFromString('package.xml', '<?xml version="1.0" encoding="UTF-8"?>
+                                                <Package xmlns="http://soap.sforce.com/2006/04/metadata">
+                                                    <types>
+                                                        <members>WatchListReport</members>
+                                                        <name>ApexPage</name>
+                                                    </types>
+                                                        <version>27.0</version>
+                                                </Package>'
+                                );
+
+
+            $zip->close();
+
+
+            $zip64 = base64_encode( file_get_contents('package.zip') ) ;
+
+
+            
+            $this->_client->deploy( 
+                                    array(
+                                            'ZipFile' => $zip64,
+                                            'DeployOptions' => array(
+                                                                        'checkOnly' => false,
+                                                                        'allowMissingFiles' => false,
+                                                                        'autoUpdatePackage' => false,
+                                                                        'ignoreWarnings' => false,
+                                                                        'performRetrieve' => false,
+                                                                        'purgeOnDelete' => false,
+                                                                        'rollbackOnError' => false,
+                                                                        'runAllTests' => false,
+                                                                        'singlePackage' => false,
+
+
+                                                                    ),
+                                         )
+                                    );
+
+            echo $this->_client->__getLastResponse();
+
+        $soap_response = $this->_client->__getLastResponse();
+
+        $xml = $this->_setupXMLNS($soap_response);
+
+
+        foreach($xml->xpath('//sf:id') as $item) {
+
+            $Id = $item;
+
+        }
+
+
+        foreach(range(1,100) as $time) {
+
+            $this->_client->checkStatus( 
+                                            array(
+                                                    'asyncProcessId' =>  $Id
+                                                )
+                                        );
+
+            $soap_response = $this->_client->__getLastResponse();
+ 
+            $xml = $this->_setupXMLNS($soap_response);
+
+            $done = (string) $xml->xpath('//sf:done')[0];
+
+            if ($done == 'false') {
+
+                echo 'Polling...'  . PHP_EOL;
+
+                sleep(10);
+
+            } else {
+
+                echo 'Done!' . PHP_EOL;
+
+                break;
+
+            }
+        }
+
+                    $this->_client->checkDeployStatus( 
+                                            array(
+                                                    'asyncProcessId' =>  $Id
+                                                )
+                                        );
+
+
+        $soap_response = $this->_client->__getLastResponse();
+
+        echo 'Response = ' . $soap_response . "\r\n";
+
+    }
+
+
+
     public function testCreate() {
 
         $obj = new stdClass();
